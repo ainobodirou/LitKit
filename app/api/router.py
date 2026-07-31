@@ -1,0 +1,15 @@
+from fastapi import APIRouter
+from api.routes import health, telegram
+
+api_router = APIRouter()
+
+api_router.include_router(
+    health.router,
+    prefix="/health",
+    tags = ["health"],
+)
+api_router.include_router(
+    telegram.router,
+    prefix = "/telegram"
+    tags = ["telegram"],
+)
