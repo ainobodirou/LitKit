@@ -4,6 +4,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    BaseHandler,
     filters,
 )
 
@@ -16,7 +17,7 @@ from app.telegram.handlers import (
 logger = logging.getLogger(__name__)
 
 async def handle_error(
-    update: object,
+    update: object | None,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     logger.error(
@@ -49,6 +50,6 @@ def create_application(*, token:str, assistant: AssistantService, owner_user_id:
         )
     )
         
-    application.add_handler(handle_error)
+    application.add_error_handler(handle_error)
 
     return application

@@ -14,26 +14,26 @@ class Runtime:
     assistant_service: AssistantService
     telegram_transport: TelegramBotService
     # Create model clients, assistant service, telegram application and transport
-    def create_runtime(settings: Settings):
+def create_runtime(settings: Settings) -> Runtime:
 
-        models = create_assistant_models(settings)
-        supervisor = models.supervisor
+    models = create_assistant_models(settings)
+    supervisor = models.supervisor
 
-        assistant_service = AssistantService(supervisor = supervisor)
+    assistant_service = AssistantService(supervisor = supervisor)
 
-        telegram_app = create_application(
-            token = settings.telegram_bot_token,
-            assistant = assistant_service,
-            owner_user_id = settings.telegram_owner_user_id,
-        )
+    telegram_app = create_application(
+        token = settings.telegram_bot_token.get_secret_value(),
+        assistant = assistant_service,
+        owner_user_id = settings.telegram_owner_user_id,
+    )
 
-        telegram_transport = TelegramBotService(
-            application=telegram_app
-        )
-        
-        return Runtime(
-            assistant_service=assistant_service,
-            telegram_transport=telegram_transport
-        )
+    telegram_transport = TelegramBotService(
+        application=telegram_app
+    )
+
+    return Runtime(
+        assistant_service=assistant_service,
+        telegram_transport=telegram_transport
+    )
 
 

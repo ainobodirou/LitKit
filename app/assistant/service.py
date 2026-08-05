@@ -14,7 +14,7 @@ class AssistantService:
     async def respond(
             self,
             *,
-            user_ud: str,
+            user_id: str,
             conversation_id: str,
             text: str,
     ) -> str:

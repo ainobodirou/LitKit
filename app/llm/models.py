@@ -12,7 +12,7 @@ class AssistantModels:
 def create_assistant_models(settings: Settings) -> AssistantModels:
     common_options = {
         "base_url" : settings.litellm_base_url,
-        "api_key" : settings.litellm_api_key,
+        "api_key" : settings.litellm_api_key.get_secret_value(),
         "timeout" : 60,
         "max_retries": 0
     }
