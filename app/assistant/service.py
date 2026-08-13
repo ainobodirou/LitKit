@@ -11,6 +11,8 @@ class AssistantService:
                    ) -> None:
         self._supervisor = supervisor
 
+    
+
     async def respond(
             self,
             *,
@@ -44,3 +46,5 @@ class AssistantService:
             if text_parts:
                 return ''.join(text_parts)
         raise RuntimeError("Model: no text returned")
+
+ 
