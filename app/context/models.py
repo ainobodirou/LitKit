@@ -1,19 +1,18 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum 
 from datetime import datetime 
-from typing import Generic, Mapping, TypeVar
-from llm.types import ModelType
 
-class ContextSource: 
-    RECENT_MESSAGES = "recent_messages"
-    ACTIVE_TASK = "active_task"
-    USER_MEMORY = "user_memory"
+from pydantic import BaseModel
 
 
-
-from dataclasses import dataclass
-from enum import Enum
-
+@dataclass(frozen=True)
+class Memory:
+    id: str
+    content: str
+    type: str
+    created_at: datetime
+    relevance: float | None = None 
+    source_id: str | None = None
 
 
 class TaskType(str, Enum):
@@ -34,10 +33,11 @@ class ContextSource(str, Enum):
 
 
 
+
 @dataclass(frozen=True)
 class TaskContextPolicy:
     task_type: TaskType
-    sources: tuple[ContextSource, ...]
+    allowed_sources: tuple[ContextSource, ...]
     max_memories: int = 0
     max_events: int = 0
     max_sources: int = 0
@@ -50,24 +50,28 @@ class RoutingContext:
     active_tasks: tuple[str,...]
     available_sources: tuple[str,...]
 
+class ContextPacket(BaseModel):
+    task_type:str
+    model_role:str
+    recent_messages:tuple[str,...]
+    current_request: str
+    memories: tuple[Memory,...]
 
-@dataclass(frozen = True)
-class ContextPlan:
+
+class ContextPlan(BaseModel):
     task_type: str
     sources: tuple[str,...]
-    capabilities: tuple[str,...]
-    queries: tuple[str,...]
     constraints: tuple[str,...]
-    model_role: str
 
 @dataclass(frozen=True)
 class ApprovedContextPlan:
     task_type: str
     sources: tuple[str,...]
-    capabilities: tuple[str,...]
-    model_type: ModelType
+    model_role: str
     
     max_memories: int = 0
     max_events: int = 0 
     max_sources: int = 0
+
+
 

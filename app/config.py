@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     telegram_owner_user_id: int | None = None
     assistant_temp: float = 1
     specialist_temp: float = 0.3
+    db_path: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
