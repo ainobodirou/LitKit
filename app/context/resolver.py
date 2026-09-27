@@ -8,6 +8,7 @@ from app.context.models import (ContextPlan,
 from app.context.policies import TASK_POLICIES
 from app.context.repositories import MemoryRepo
 from app.assistant.prompts import CONTEXT_PLANNER_PROMPT
+from app.llm.embeddings import TextEmbeddingService, EmbeddingService
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import(
     HumanMessage,
@@ -15,6 +16,11 @@ from langchain_core.messages import(
 )
 from collections.abc import Mapping 
 
+## Context packet is a finalized, defined and structured context model that the agent workflow receives beased on user query
+## Context packet cannot be changed within its own workflow runtime.
+## Context Resolver
+## Enforces structured planning of context packet object creation from query to > task identification > policy alignment 
+## > context planning > context packet creation 
 
 
 class ContextResolver:
@@ -22,6 +28,7 @@ class ContextResolver:
             self,
             *,
             planner_model: BaseChatModel,
+            embedding_service: EmbeddingService,
             policies: Mapping[
                 TaskType,
                 TaskContextPolicy,
@@ -31,6 +38,7 @@ class ContextResolver:
         
         self._planner_model = planner_model
         self.struct_planner = (planner_model.with_structured_output(ContextPlan, include_raw= False))
+        self._embedding_service = embedding_service
         self._policies = policies
         self.memory_repo = memory_repo
 
@@ -77,7 +85,10 @@ class ContextResolver:
         else:
             recent_messages = ()
         if "user_memory" in approved_plan.sources:
-            memories = await self.memory_repo.find_relevant(query = routing_context.current_request, limit = approved_plan.max_memories)
+            query_embedding = await self._embedding_service.embed_query(text = routing_context.current_request)
+            memories = await self.memory_repo.find_relevant(embedding_model = self._embedding_service.model_name,
+                                                            query_embedding = query_embedding,
+                                                            limit = approved_plan.max_memories)
         else:
             memories = ()
         return ContextPacket(

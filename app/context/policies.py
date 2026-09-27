@@ -39,7 +39,7 @@ TASK_POLICIES: dict[TaskType, TaskContextPolicy] = {
 
     ),
     TaskType.CALENDAR: TaskContextPolicy(
-        task_type=TaskType.RESEARCH,
+        task_type=TaskType.CALENDAR,
         allowed_sources = (
             ContextSource.RECENT_MESSAGES,
             ContextSource.ACTIVE_TASK,

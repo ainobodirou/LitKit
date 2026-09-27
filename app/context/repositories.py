@@ -6,6 +6,7 @@ class MemoryRepo(Protocol):
     async def find_relevant(
             self,
             *,
+            embedding_model: str,
             query_embedding: tuple[float,...],
             limit: int,
     ) -> tuple[Memory, ...]:
