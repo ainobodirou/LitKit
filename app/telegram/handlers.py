@@ -7,9 +7,14 @@ from telegram.ext import ContextTypes
 
 from app.assistant.service import AssistantService 
 
-logger = logging.getLogges(__name__)
+logger = logging.getLogger(__name__)
 
-def create_start_handler(owner_user_id: int):
+HandlerCallback = Callable[
+    [Update, ContextTypes.DEFAULT_TYPE],
+    Awaitable[None]
+]
+
+def create_start_handler(owner_user_id: int) -> HandlerCallback:
     async def start(
             update: Update,
             context: ContextTypes.DEFAULT_TYPE
@@ -27,8 +32,8 @@ def create_start_handler(owner_user_id: int):
         await message.reply_text(
             "LitKit is live"
         )
-        return start
-
+    return start
+    
 def create_text_handler(
         assistant: AssistantService,
         owner_user_id: int,
@@ -55,8 +60,8 @@ def create_text_handler(
         try: 
             response = await assistant.respond(
                 user_id=str(user.id),
-                conversation_id = str(chat.id)
-                text = message.text
+                conversation_id = str(chat.id),
+                text = message.text,
             )
         except Exception:
             logger.exception("Assistant Failed")

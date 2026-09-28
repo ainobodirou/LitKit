@@ -1,13 +1,42 @@
-from telegram import Bot
+import logging
+from telegram.ext import Application
 
-from app.telegram.contracts import UserMessage, MessageSender
+logger = logging.getLogger(__name__)
 
-class TelegramService(MessageSender):
-    def __init__(self,bot: Bot) -> None:
-        self._bot = bot 
+class TelegramBotService:
+    def __init__(
+            self,
+            *,
+            application: Application
+    ) -> None:
+        self._application = application
 
-    async def send_text(self,*,recipient_id:str,text:str,) -> None:
-        await self._bot.send_message(
-            chat_id = int(recipient_id), ## dont like that conversion 
-            text = text 
+    async def start(self) -> None:
+        updater = self._application.updater
+
+        if updater is None:
+            raise RuntimeError(
+                "Telegram Application has no updater"
+            )
+        
+        await self._application.initialize()
+        await updater.start_polling(
+            drop_pending_updates=True,
         )
+        await self._application.start()
+        bot = self._application.bot
+        logger.info(
+            "Telegram bot started: @%s", bot.username,
+        )
+    async def stop(self) -> None:
+        updater = self._application.updater
+
+        if updater is not None and updater.running:
+            await updater.stop()
+        if self._application.running:
+            await self._application.stop()
+        await self._application.shutdown()
+        logger.info("Telegram bot stopped.")
+
+
+    

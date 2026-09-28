@@ -1,0 +1,25 @@
+services:
+  litellm:
+    image: docker.litellm.ai/berriai/litellm:latest
+    container_name: litkit-litellm
+
+    command:
+      - "--config"
+      - "/app/config.yaml"
+
+    ports:
+      - "4000:4000"
+
+    volumes:
+      - type: bind
+        source: ./infra/litellm/config.yaml
+        target: /app/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+
+    restart: unless-stopped
