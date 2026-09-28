@@ -38,6 +38,7 @@ class DummyRepo:
 async def test_resolver():
     #create 6 objects:
     memory = Memory(
+        id="memory-1",
         content="User preferes morning workouts",
         type = "preference",
         created_at=datetime(2002,10,6,12,00,00),
@@ -49,7 +50,7 @@ async def test_resolver():
 
     plan = ContextPlan(
         task_type = TaskType.GENERAL_CHAT,
-        sources = (ContextSource.RECENT_MESSAGES,ContextSource.USER_MEMORY)
+        sources = (ContextSource.RECENT_MESSAGES,ContextSource.USER_MEMORY),
         constraints=()
 
     )
