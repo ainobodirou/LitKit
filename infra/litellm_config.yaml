@@ -1,0 +1,25 @@
+model_list:
+  - model_name: assistant-supervisor
+    litellm_params:
+      model: anthropic/your-supervisor-model
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: assistant-specialist
+    litellm_params:
+      model: openai/your-specialist-model
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Another deployment in the same model group
+  - model_name: assistant-specialist
+    litellm_params:
+      model: azure/your-specialist-deployment
+      api_base: os.environ/AZURE_API_BASE
+      api_key: os.environ/AZURE_API_KEY
+      api_version: os.environ/AZURE_API_VERSION
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
