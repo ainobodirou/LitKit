@@ -11,5 +11,5 @@ class DuckDBDatabase :
         self.conn = duckdb.connect(path)
         create_schema(conn=self.conn)
 
-    def close_conn(self) -> None:
+    def close(self) -> None:
         self.conn.close()

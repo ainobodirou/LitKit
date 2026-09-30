@@ -27,7 +27,7 @@ async def lifespan(
     try:
         yield
     finally:
-        await runtime.telegram_transport.stop()
+        await runtime.close()
 
 app = FastAPI(
     title = "LitKit",

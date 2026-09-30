@@ -1,7 +1,6 @@
-from app.assistant.prompts import SUPERVISOR_PROMPT, SYSTEM_PROMPT
 from app.context.resolver import ContextResolver
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_core.language_models.chat_models import BaseChatModel
+from app.assistant.dispatcher import WorkflowDispatcher
+from app.context.models import RoutingContext, ContextPacket
 
 ## Assistant Service - routing of context packets and request into agent workflow and respond.
 class AssistantService:
@@ -13,42 +12,34 @@ class AssistantService:
         self._context_resolver = context_resolver
         self._dispatcher = dispatcher
 
-    
 
-
-    ## Assistant Service is solely a communication tool independend of the specific caller
-    async def respond(
-            self,
-            *,
-            user_id: str,
-            conversation_id: str,
-            text: str,
-    ) -> str:
-        response = await self._supervisor.ainvoke(
-            [
-                SystemMessage(content=SYSTEM_PROMPT),
-                HumanMessage(content = text),
-            ]
+    ## Resolve request into ContextPacket ## 
+    async def _context_route(self, *, user_id, conversation_id: str, text: str,) -> ContextPacket:
+        routing_context = RoutingContext(
+            current_request=text,
+            recent_messages=(),
+            active_tasks=(),
+            available_sources=(),
         )
-        content = response.content
+        return await self._context_resolver.resolve(routing_context)
 
-        if isinstance(content,str):
-            return content
-        ## Some models can return output in other structures list/dict, needs parsing: #
-        if isinstance(content, list):
-            text_parts: list[str] = []
+    ## Dispatch ContextPacket into appropriate workflow ## 
+    async def _packet_dispatch(self, *, user_id: str, conversation_id: str, text: str,) -> str:
+        packet = await self._context_route(user_id=user_id, conversation_id=conversation_id,text=text)
+        return await self._dispatcher.dispatch(packet)
 
-            for part in content:
-                if isinstance(part,str):
-                    text_parts.append(part)
-                    continue
-
-                if isinstance(part, dict):
-                    part_text = part.get("text")
-                    if isinstance(part_text, str):
-                        text_parts.append(part_text)
-            if text_parts:
-                return ''.join(text_parts)
-        raise RuntimeError("Model: no text returned")
+    ## Request gateway method - receive, dispatch, respond ##
+    async def respond(
+        self,
+        *,
+        user_id: str,
+        conversation_id: str,
+        text: str,
+    ) -> str:
+        return await self._packet_dispatch(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            text=text,
+        )
 
  

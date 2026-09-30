@@ -49,7 +49,7 @@ async def test_resolver():
 
     plan = ContextPlan(
         task_type = TaskType.GENERAL_CHAT,
-        sources = (ContextSource.RECENT_MESSAGES,ContextSource.USER_MEMORY)
+        sources = (ContextSource.RECENT_MESSAGES,ContextSource.USER_MEMORY),
         constraints=()
 
     )

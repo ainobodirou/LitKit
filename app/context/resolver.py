@@ -1,11 +1,10 @@
 from app.context.models import (ContextPlan, 
+                                ContextSource,
                                 TaskContextPolicy,
                                 ApprovedContextPlan, 
                                 TaskType, 
                                 RoutingContext,
                                 ContextPacket)
-
-from app.context.policies import TASK_POLICIES
 from app.context.repositories import MemoryRepo
 from app.assistant.prompts import CONTEXT_PLANNER_PROMPT
 from app.llm.embeddings import TextEmbeddingService, EmbeddingService
@@ -80,11 +79,11 @@ class ContextResolver:
 
     async def _build_context(self, routing_context: RoutingContext, approved_plan: ApprovedContextPlan)-> ContextPacket:
 
-        if "recent_messages" in approved_plan.sources:
+        if ContextSource.RECENT_MESSAGES in approved_plan.sources:
             recent_messages = routing_context.recent_messages
         else:
             recent_messages = ()
-        if "user_memory" in approved_plan.sources:
+        if ContextSource.USER_MEMORY in approved_plan.sources:
             query_embedding = await self._embedding_service.embed_query(text = routing_context.current_request)
             memories = await self.memory_repo.find_relevant(embedding_model = self._embedding_service.model_name,
                                                             query_embedding = query_embedding,
