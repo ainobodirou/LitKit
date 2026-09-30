@@ -22,9 +22,8 @@ async def lifespan(
     runtime = create_runtime(settings)
     app.state.runtime = runtime
 
-    await runtime.telegram_transport.start()
-
     try:
+        await runtime.telegram_transport.start()
         yield
     finally:
         await runtime.close()
