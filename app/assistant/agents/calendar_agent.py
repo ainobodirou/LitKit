@@ -19,7 +19,7 @@ class CalendarTaskAgent:
         self._mcp_client = mcp_client
         self._sys_prompt = sys_prompt
 
-    async def calendar_job(self, packet: ContextPacket) -> str:
+    async def run(self, packet: ContextPacket) -> str:
         async with self._mcp_client.session("calendar") as session:
             tools = await load_mcp_tools(session)
             agent = create_agent(model = self._model,

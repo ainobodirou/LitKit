@@ -1,18 +1,22 @@
 from app.assistant.prompts import SUPERVISOR_PROMPT, SYSTEM_PROMPT
+from app.context.resolver import ContextResolver
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
-## Assistant Service - handles incoming messages to langchain workflow ##
-
+## Assistant Service - routing of context packets and request into agent workflow and respond.
 class AssistantService:
     def __init__ (self,
                    *,
-                   supervisor: BaseChatModel,
+                   context_resolver: ContextResolver,
+                   dispatcher: WorkflowDispatcher,
                    ) -> None:
-        self._supervisor = supervisor
+        self._context_resolver = context_resolver
+        self._dispatcher = dispatcher
 
     
 
+
+    ## Assistant Service is solely a communication tool independend of the specific caller
     async def respond(
             self,
             *,
