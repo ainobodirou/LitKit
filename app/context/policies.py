@@ -42,11 +42,10 @@ TASK_POLICIES: dict[TaskType, TaskContextPolicy] = {
         task_type=TaskType.CALENDAR,
         allowed_sources = (
             ContextSource.RECENT_MESSAGES,
-            ContextSource.ACTIVE_TASK,
             ContextSource.USER_MEMORY,
         ),
         max_memories = 3,
-        model_role = "supervisor",
+        model_role = "specialist",
     ),
 
 }

@@ -13,5 +13,6 @@ router_settings:
   routing_strategy: simple-shuffle
   num_retries: 2
 
-general_settings: 
-  master_key: os.environ/LITELLM_MASTER_KEY
+general_settings:
+  # Local development only: the proxy is bound to 127.0.0.1 in compose.yaml.
+  dangerously_permit_weak_or_unset_master_key: true

@@ -19,7 +19,18 @@ class CalendarTaskAgent:
         self._mcp_client = mcp_client
         self._sys_prompt = sys_prompt
 
-    async def calendar_job(self, packet: ContextPacket) -> str:
+    async def run(self, packet: ContextPacket) -> str:
+        sections = [
+            ("Current resuts", packet.current_request.strip()),
+            ("Recent messages", "\n".join(packet.recent_messages)),
+            ("Relevant memories", "\n".join(memory.content for memory in packet.memories)),
+        ]
+        content = "\n\n".join(
+        f"{label}:\n{value}"
+        for label, value in sections
+        if value
+        )
+
         async with self._mcp_client.session("calendar") as session:
             tools = await load_mcp_tools(session)
             agent = create_agent(model = self._model,
@@ -28,7 +39,7 @@ class CalendarTaskAgent:
                                 )
             result = await agent.ainvoke({
                 "messages": [
-                    HumanMessage(content = packet.current_request),
+                    HumanMessage(content = content),
                 ]
             })
             return result["messages"][-1].text

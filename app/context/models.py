@@ -51,7 +51,7 @@ class RoutingContext:
     available_sources: tuple[str,...]
 
 class ContextPacket(BaseModel):
-    task_type:str
+    task_type:TaskType
     model_role:str
     recent_messages:tuple[str,...]
     current_request: str
@@ -59,14 +59,14 @@ class ContextPacket(BaseModel):
 
 
 class ContextPlan(BaseModel):
-    task_type: str
-    sources: tuple[str,...]
+    task_type: TaskType
+    sources: tuple[ContextSource,...]
     constraints: tuple[str,...]
 
 @dataclass(frozen=True)
 class ApprovedContextPlan:
-    task_type: str
-    sources: tuple[str,...]
+    task_type: TaskType
+    sources: tuple[ContextSource,...]
     model_role: str
     
     max_memories: int = 0
