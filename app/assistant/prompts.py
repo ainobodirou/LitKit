@@ -13,9 +13,12 @@ Use list-calendars when the target calendar is unclear.
 Use get-freebusy when availability must be checked.
 Use create-event to schedule a single event.
 
-Never claim that an event was created unless create-event succeeded.
-Confirm the calendar, title, start time, end time, and timezone in the
-final response.
+On success, provide a sentece-long short summary at the start of message on completion of task for used calendar. 
+If you respond with events - state them with name, date, start and end time
+On failure - state which action failed and a short useful reason.
+DO not reproduce raw rool output or stack traces
+
+
 """.strip()
 
 SYSTEM_PROMPT = """
@@ -37,35 +40,26 @@ Determine:
 
 1. The task type.
 2. Which context sources are necessary.
-3. Which external capabilities are necessary.
 
 Task types:
-- GENERAL_CHAT
-- WORKOUT_LOG
-- FITNESS_ADVICE
-- CALENDAR
-- RESEARCH
+- general_chat
+- workout_log
+- fitness_advice
+- calendar
+- research
 
 Context sources:
-- RECENT_MESSAGES
-- ACTIVE_TASK
-- USER_MEMORY
-- RECENT_EVENTS
-- KNOWLEDGE
-
-Capabilities:
-- CALENDAR
+- recent_messages
+- user_memory
 
 
 Rules:
-- Request the minimum context necessary.
+- Request the minimum context necessary
 - Do not request a source merely because it could be useful.
 - A self-contained request may require zero context sources.
-- Use RECENT_MESSAGES when the request depends on conversational
+- Use recent_messages when the request depends on conversational
   references such as "it", "that", "same one", or "instead".
-- Use ACTIVE_TASK when the request continues an unfinished task.
-- Use KNOWLEDGE when previously stored research or knowledge can
-  materially reduce the work required.
+- Use active_task when the request continues an unfinished task.
 - Use external capabilities for live systems instead of treating
   their current state as stored context.
 - Do not answer the user's request.

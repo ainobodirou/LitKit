@@ -36,7 +36,11 @@ class ContextResolver:
             ) -> None:
         
         self._planner_model = planner_model
-        self.struct_planner = (planner_model.with_structured_output(ContextPlan, include_raw= False))
+        self.struct_planner = planner_model.with_structured_output(
+            ContextPlan,
+            method="function_calling",
+            include_raw=False,
+        )
         self._embedding_service = embedding_service
         self._policies = policies
         self.memory_repo = memory_repo
@@ -88,13 +92,14 @@ class ContextResolver:
             memories = await self.memory_repo.find_relevant(embedding_model = self._embedding_service.model_name,
                                                             query_embedding = query_embedding,
                                                             limit = approved_plan.max_memories)
+
         else:
             memories = ()
         return ContextPacket(
             task_type = approved_plan.task_type,
             model_role = approved_plan.model_role,
-            recent_messages= recent_messages,
-            current_request= routing_context.current_request,
+            recent_messages = recent_messages,
+            current_request = routing_context.current_request,
             memories=memories
         )
 
