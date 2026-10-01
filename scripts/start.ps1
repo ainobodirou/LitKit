@@ -11,7 +11,6 @@ Set-Location -LiteralPath $projectRoot
 $pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $requiredEnvKeys = @(
     "ANTHROPIC_API_KEY",
-    "LITELLM_MASTER_KEY",
     "LITELLM_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_OWNER_USER_ID",
@@ -42,6 +41,22 @@ function Test-TcpPort {
     }
     finally {
         $client.Dispose()
+    }
+}
+
+function Test-DockerEngine {
+    $previousErrorPreference = $ErrorActionPreference
+
+    try {
+        # Docker writes connection failures to stderr. Suppress them here so
+        # strict script error handling does not abort before we inspect its
+        # process exit code.
+        $ErrorActionPreference = "SilentlyContinue"
+        docker info *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
     }
 }
 
@@ -79,29 +94,42 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Checking Google Calendar credentials..."
-$credentialCheck = @'
-from app.config import get_settings
-
-settings = get_settings()
-credentials = settings.google_oauth_credentials.resolve()
-token = settings.google_calendar_mcp_token_path.resolve()
-
-if not credentials.is_file():
-    raise SystemExit(f"Google OAuth credentials file not found: {credentials}")
-if not token.is_file() or token.stat().st_size == 0:
-    raise SystemExit("Google Calendar token is missing or empty. Run the MCP authentication flow first.")
-'@
-
-& $pythonPath -c $credentialCheck
+& $pythonPath -m scripts.preflight
 
 if ($LASTEXITCODE -ne 0) {
     throw "Google Calendar credential preflight failed."
 }
 
-docker info *> $null
+if (-not (Test-DockerEngine)) {
+    $dockerDesktopCandidates = @(
+        (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\DockerDesktop\Docker Desktop.exe")
+    )
+    $dockerDesktopPath = $dockerDesktopCandidates |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
 
-if ($LASTEXITCODE -ne 0) {
-    throw "Docker Desktop is not running."
+    if (-not $dockerDesktopPath) {
+        throw "Docker Desktop is not running and its executable was not found."
+    }
+
+    Write-Host "Starting Docker Desktop..."
+    Start-Process -FilePath $dockerDesktopPath -WindowStyle Hidden
+
+    $dockerReady = $false
+
+    foreach ($attempt in 1..120) {
+        if (Test-DockerEngine) {
+            $dockerReady = $true
+            break
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    if (-not $dockerReady) {
+        throw "Docker Desktop started, but its Linux engine was not ready after 120 seconds."
+    }
 }
 
 Write-Host "Starting LiteLLM..."
@@ -150,4 +178,3 @@ if ($Reload) {
 
 Write-Host "Starting LitKit..."
 & $pythonPath @uvicornArguments
-
