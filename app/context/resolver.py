@@ -100,7 +100,8 @@ class ContextResolver:
             model_role = approved_plan.model_role,
             recent_messages = recent_messages,
             current_request = routing_context.current_request,
-            memories=memories
+            memories=memories,
+            allowed_resources=self._policies[approved_plan.task_type].allowed_sources,
         )
 
 

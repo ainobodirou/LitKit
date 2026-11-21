@@ -56,6 +56,7 @@ class ContextPacket(BaseModel):
     recent_messages:tuple[str,...]
     current_request: str
     memories: tuple[Memory,...]
+    allowed_resources: tuple[ContextSource, ...] | None = None
 
 
 class ContextPlan(BaseModel):

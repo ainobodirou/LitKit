@@ -8,6 +8,8 @@ from app.config import Settings
 class AssistantModels:
     supervisor: BaseChatModel
     specialist: BaseChatModel
+    orchestrator: BaseChatModel
+    distiller: BaseChatModel
 
 def create_assistant_models(settings: Settings) -> AssistantModels:
     common_options = {
@@ -17,15 +19,19 @@ def create_assistant_models(settings: Settings) -> AssistantModels:
         "max_retries": 0
     }
 
+    supervisor = ChatOpenAI(
+        model="assistant-supervisor",
+        temperature=settings.assistant_temp,
+        **common_options,
+    )
+    specialist = ChatOpenAI(
+        model="assistant-specialist",
+        temperature=settings.specialist_temp,
+        **common_options,
+    )
     return AssistantModels(
-        supervisor=ChatOpenAI(
-            model = "assistant-supervisor",
-            temperature = settings.assistant_temp,
-            **common_options
-        ),
-        specialist = ChatOpenAI(
-            model = "assistant-specialist",
-            temperature = settings.specialist_temp,
-            **common_options
-        ),
+        supervisor=supervisor,
+        specialist=specialist,
+        orchestrator=supervisor,
+        distiller=specialist,
     )

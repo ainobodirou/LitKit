@@ -1,9 +1,19 @@
 # LitKit Laya intake and parent workflow
 
-**Target** · Friday, 20 November 2026  
+**Next work session** · Saturday, 21 November 2026
+
 **Repository baseline** · `main` at `5e3106d`
 
-Introduce Laya at the context resolver boundary, keep the supervisor as a fallback, and run the existing general and calendar workflows through a parent LangGraph. Complete intake and its interface tests before wiring the graph. Keep the current Telegram request and reply interface.
+Introduce Laya at the context resolver boundary, keep the supervisor as a fallback, and run the existing general and calendar workflows through a parent LangGraph. Keep the current Telegram request and reply interface.
+
+## Work plan for Saturday, 21 November
+
+1. **Build `OrchestrationNodes`.** Implement the six async methods in [`IOrchestrationGraph`](../app/assistant/graphs/IOrchestrationGraph.py). Inject the services each node needs. Keep live model clients and tool sessions outside `OrchestratorState`. Return partial state updates, with feedback and the attempt count available to the parent. Done when the node class satisfies the protocol and its methods can be exercised with fake dependencies.
+2. **Define the subgraph interface.** Give the parent one async contract for a child attempt. The child receives approved context, retry feedback, and relevant prior receipts. It returns a candidate reply, tool receipts, and any unresolved issue. The parent binds the selected model and tools in `execute_subgraph`. The child manages its own structured message history. Done when a fake child can be invoked through the same input and output mapping as a real child.
+3. **Wire the orchestration workflow.** Use [`workflow.py`](../app/assistant/graphs/workflow.py) to register the node methods and define the edges. Start with the current resolver and supervisor planner so the graph can be verified independently of Laya. Exercise an accepted result, one bounded repair with feedback, and a clarification or exhausted outcome. Use a fake worklog sink for this slice. Done when the parent reaches one final reply on each path and hands receipts to a repair attempt without repeating a confirmed write.
+4. **Integrate Laya.** Add the classifier protocol and Laya adapter at the resolver boundary, then wire the adapter through bootstrap. Reuse the existing policy and packet construction and keep the supervisor fallback. Done when stubbed Laya responses cover general chat, calendar, abstention, and classifier failure, including a request that takes the Laya route through the wired parent graph.
+
+The session ends with offline verification. Durable worklogs, checkpoint recovery, and enabling Laya against live calendar tools remain separate milestones. Live enablement follows the labeled evaluation below.
 
 ## Milestones
 
