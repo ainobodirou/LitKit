@@ -1,31 +1,40 @@
 import json
-from dataclasses import asdict, replace
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager
+from dataclasses import asdict, dataclass, replace
 from typing import Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 
 from app.assistant.graphs.IOrchestrationGraph import IOrchestrationGraph
-from app.assistant.graphs.state.orchestrator_state import (
+from app.assistant.graphs.child_factory import ChildFactory
+from app.assistant.graphs.orchestrator_state import (
     OrchestratorState,
     PreparedContext,
     RetrievedContext,
 )
 from app.assistant.prompts import CONTEXT_DISTILLATION_PROMPT, RETRIEVAL_DECISION_PROMPT
-from app.context.models import ContextSource
+from app.context.models import ContextSource, TaskType
+from app.llm.types import ModelRole
 
 SOFT_TOKEN_BUDGET = 5_000
 ESTIMATED_BYTES_PER_TOKEN = 4
 
+##Retrieval decision class for deciding on current context distillation
+##Has only 1 consumer: exceeds_budget 
 
 class RetrievalDecision(BaseModel):
     action: Literal["skip", "lookup"]
     source: ContextSource | None = None
     query: str | None = None
 
+#Count payload tokens using conventional rule for ienglish prose: 4 characters per token 
+#Needs calibration in v2 and handling other languages comparably
 
-def _exceeds_soft_budget(context: PreparedContext) -> bool:
+def exceeds_budget(context: PreparedContext) -> bool:
     payload = json.dumps(asdict(context), ensure_ascii=False, separators=(",", ":"))
     return len(payload.encode("utf-8")) > SOFT_TOKEN_BUDGET * ESTIMATED_BYTES_PER_TOKEN
 
@@ -52,7 +61,28 @@ async def _compact_text(
     return original
 
 
+@dataclass(frozen=True)
+class TaskConfiguration:
+    model_role: ModelRole
+    system_prompt: str
+    open_tools: Callable[[], AbstractAsyncContextManager[Sequence[BaseTool]]]
+
+
 class OrchestrationNodes(IOrchestrationGraph):
+
+    ##OrchestrationNodes: implements OrchestrationGraph interface, that defines signatures of 
+    # methods needed by graph builder orchestration entry graph node.
+
+    def __init__(
+        self,
+        *,
+        task_registry: Mapping[TaskType, TaskConfiguration],
+        child_factory: ChildFactory,
+    ) -> None:
+        self._task_registry = dict(task_registry)
+        self._child_factory = child_factory
+
+    ##(Optional LLM reasoning step) Review the context packet, enrich or skip based on model response
     async def review_and_retrieve(self, state: OrchestratorState) -> dict[str, object]:
         packet = state["ctx_packet"]
         allowed_resources = packet.allowed_resources
@@ -91,12 +121,17 @@ class OrchestrationNodes(IOrchestrationGraph):
 
         return {"retrieved_context": await self.retrieve_helper(source, query)}
 
+    ## Helper method for document retrieval
     async def retrieve_helper(
         self, source: ContextSource, query: str
     ) -> RetrievedContext | None:
         """Placeholder for retrieving data from a validated source."""
         return None
 
+    ## Distill the original context packet and retrieved context
+    ## Compact the retrieved text by default
+    ## On soft budget violation - compact the current request aswell
+    
     async def distill_context(self, state: OrchestratorState) -> dict[str, object]:
         retrieved = state.get("retrieved_context")
         prepared = PreparedContext(
@@ -105,7 +140,7 @@ class OrchestrationNodes(IOrchestrationGraph):
             feedback=state.get("feedback"),
             tool_ids=tuple(state.get("tools", ())),
         )
-        if not _exceeds_soft_budget(prepared):
+        if not exceeds_budget(prepared):
             return {"prepared_context": prepared}
 
         model = state["models"].distiller
@@ -115,7 +150,7 @@ class OrchestrationNodes(IOrchestrationGraph):
             )
             prepared = replace(prepared, retrieved_context=replace(retrieved, text=compacted))
 
-        if _exceeds_soft_budget(prepared):
+        if exceeds_budget(prepared):
             compacted = await _compact_text(
                 model, prepared, "current_request", prepared.current_request
             )

@@ -8,12 +8,18 @@ from langchain_core.messages import AIMessage
 from langgraph.types import RetryPolicy
 from pydantic import SecretStr, ValidationError
 
-from app.assistant.graphs.state.nodes import OrchestrationNodes
-from app.assistant.graphs.state.orchestrator_state import PreparedContext, RetrievedContext
+from app.assistant.graphs.child_factory import ChildFactory
+from app.assistant.graphs.nodes import OrchestrationNodes
+from app.assistant.graphs.orchestrator_state import PreparedContext, RetrievedContext
 from app.context.models import ContextPacket, ContextPlan, ContextSource, RoutingContext, TaskType
 from app.context.policies import TASK_POLICIES
 from app.context.resolver import ContextResolver
 from app.llm.models import AssistantModels, create_assistant_models
+
+
+@pytest.fixture
+def nodes():
+    return OrchestrationNodes(task_registry={}, child_factory=Mock(spec=ChildFactory))
 
 
 @pytest.fixture
@@ -40,18 +46,17 @@ def state():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("scope", [None, ()])
-async def test_empty_scope_skips_model(state, scope):
+async def test_empty_scope_skips_model(nodes, state, scope):
     state["ctx_packet"].allowed_resources = scope
 
-    assert await OrchestrationNodes().review_and_retrieve(state) == {}
+    assert await nodes.review_and_retrieve(state) == {}
     state["models"].orchestrator.with_structured_output.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_review_sends_packet_fields_and_honors_skip(state):
+async def test_review_sends_packet_fields_and_honors_skip(nodes, state):
     planner = state["models"].orchestrator.with_structured_output.return_value
     planner.ainvoke.return_value = {"action": "skip"}
-    nodes = OrchestrationNodes()
     nodes.retrieve_helper = AsyncMock()
 
     assert await nodes.review_and_retrieve(state) == {}
@@ -67,7 +72,7 @@ async def test_review_sends_packet_fields_and_honors_skip(state):
 
 
 @pytest.mark.asyncio
-async def test_review_returns_helper_data(state):
+async def test_review_returns_helper_data(nodes, state):
     planner = state["models"].orchestrator.with_structured_output.return_value
     planner.ainvoke.return_value = {
         "action": "lookup",
@@ -75,7 +80,6 @@ async def test_review_returns_helper_data(state):
         "query": "  Preferred meeting time  ",
     }
     retrieved = RetrievedContext(ContextSource.USER_MEMORY, "Preferred meeting time", "10:00")
-    nodes = OrchestrationNodes()
     nodes.retrieve_helper = AsyncMock(return_value=retrieved)
 
     assert await nodes.review_and_retrieve(state) == {"retrieved_context": retrieved}
@@ -85,7 +89,7 @@ async def test_review_returns_helper_data(state):
 
 
 @pytest.mark.asyncio
-async def test_allowed_lookup_records_empty_stub_result(state):
+async def test_allowed_lookup_records_empty_stub_result(nodes, state):
     planner = state["models"].orchestrator.with_structured_output.return_value
     planner.ainvoke.return_value = {
         "action": "lookup",
@@ -93,7 +97,7 @@ async def test_allowed_lookup_records_empty_stub_result(state):
         "query": "Preferred meeting time",
     }
 
-    assert await OrchestrationNodes().review_and_retrieve(state) == {"retrieved_context": None}
+    assert await nodes.review_and_retrieve(state) == {"retrieved_context": None}
 
 
 @pytest.mark.asyncio
@@ -106,10 +110,9 @@ async def test_allowed_lookup_records_empty_stub_result(state):
         ({"action": "retrieve"}, ValidationError),
     ],
 )
-async def test_invalid_decisions_never_reach_retrieval(state, response, error):
+async def test_invalid_decisions_never_reach_retrieval(nodes, state, response, error):
     planner = state["models"].orchestrator.with_structured_output.return_value
     planner.ainvoke.return_value = response
-    nodes = OrchestrationNodes()
     nodes.retrieve_helper = AsyncMock()
 
     with pytest.raises(error):
@@ -119,14 +122,13 @@ async def test_invalid_decisions_never_reach_retrieval(state, response, error):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure_at", ["model", "helper"])
-async def test_review_propagates_errors(state, failure_at):
+async def test_review_propagates_errors(nodes, state, failure_at):
     planner = state["models"].orchestrator.with_structured_output.return_value
     planner.ainvoke.return_value = {
         "action": "lookup",
         "source": "user_memory",
         "query": "Preferred meeting time",
     }
-    nodes = OrchestrationNodes()
     nodes.retrieve_helper = AsyncMock()
     failure = TimeoutError("timed out")
     call = planner.ainvoke if failure_at == "model" else nodes.retrieve_helper
@@ -139,7 +141,7 @@ async def test_review_propagates_errors(state, failure_at):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("extra_bytes", [0, 1])
-async def test_distill_budget_boundary_uses_utf8_bytes(state, extra_bytes):
+async def test_distill_budget_boundary_uses_utf8_bytes(nodes, state, extra_bytes):
     empty = json.dumps(
         asdict(PreparedContext("", None, None, ())),
         ensure_ascii=False,
@@ -151,7 +153,7 @@ async def test_distill_budget_boundary_uses_utf8_bytes(state, extra_bytes):
     distiller = state["models"].distiller
     distiller.ainvoke.return_value = AIMessage(content="Compact request")
 
-    update = await OrchestrationNodes().distill_context(state)
+    update = await nodes.distill_context(state)
 
     assert distiller.ainvoke.await_count == extra_bytes
     expected = "Compact request" if extra_bytes else original
@@ -161,7 +163,7 @@ async def test_distill_budget_boundary_uses_utf8_bytes(state, extra_bytes):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("needs_request_compaction", [False, True])
-async def test_distill_summarizes_retrieval_before_request(state, needs_request_compaction):
+async def test_distill_summarizes_retrieval_before_request(nodes, state, needs_request_compaction):
     request = "Schedule the check-in Friday at 10:00."
     request_padding = " Background." * 2_000 if needs_request_compaction else ""
     packet = state["ctx_packet"]
@@ -174,7 +176,7 @@ async def test_distill_summarizes_retrieval_before_request(state, needs_request_
         AIMessage(content=request),
     ]
 
-    update = await OrchestrationNodes().distill_context(state)
+    update = await nodes.distill_context(state)
 
     assert update == {
         "prepared_context": PreparedContext(
@@ -197,12 +199,12 @@ async def test_distill_summarizes_retrieval_before_request(state, needs_request_
 
 
 @pytest.mark.asyncio
-async def test_distill_returns_prepared_context_when_still_above_soft_budget(state):
+async def test_distill_returns_prepared_context_when_still_above_soft_budget(nodes, state):
     feedback = "Keep this exact. " * 2_000
     state["feedback"] = feedback
     state["models"].distiller.ainvoke.return_value = AIMessage(content="Schedule the check-in.")
 
-    update = await OrchestrationNodes().distill_context(state)
+    update = await nodes.distill_context(state)
 
     assert update == {
         "prepared_context": PreparedContext("Schedule the check-in.", None, feedback, ())

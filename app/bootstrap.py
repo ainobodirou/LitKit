@@ -1,4 +1,12 @@
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
+
+from langchain_core.tools import BaseTool
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+from app.assistant.graphs.child_factory import ChildFactory
+from app.assistant.graphs.nodes import OrchestrationNodes, TaskConfiguration
 from app.assistant.prompts import CALENDAR_PROMPT, FALLBACK_PROMPT
 from app.assistant.service import AssistantService
 from app.assistant.dispatcher import WorkflowDispatcher
@@ -14,6 +22,7 @@ from app.assistant.agents import (
 from app.config import Settings
 from app.llm.models import create_assistant_models
 from app.llm.embeddings import TextEmbeddingService
+from app.llm.types import ModelRole
 from app.mcp.client import create_mcp_client
 
 from app.context.models import TaskType
@@ -31,6 +40,7 @@ class Runtime:
     assistant_service: AssistantService
     telegram_transport: TelegramBotService
     database: DuckDBDatabase
+    orchestration_nodes: OrchestrationNodes
     # Create model clients, assistant service, telegram application and transport
 
     async def close(self) -> None:
@@ -48,6 +58,32 @@ def create_runtime(settings: Settings) -> Runtime:
     mcp_client = create_mcp_client(settings)
     database = DuckDBDatabase(path=settings.db_path)
     memory_repo = DuckDBMemoryRepo(conn=database.conn)
+
+    @asynccontextmanager
+    async def open_calendar_tools() -> AsyncIterator[Sequence[BaseTool]]:
+        async with mcp_client.session("calendar") as session:
+            yield await load_mcp_tools(session)
+
+    @asynccontextmanager
+    async def open_chat_tools() -> AsyncIterator[Sequence[BaseTool]]:
+        yield []
+
+    task_registry = {
+        TaskType.CALENDAR: TaskConfiguration(
+            model_role=ModelRole.SPECIALIST,
+            system_prompt=CALENDAR_PROMPT,
+            open_tools=open_calendar_tools,
+        ),
+        TaskType.GENERAL_CHAT: TaskConfiguration(
+            model_role=ModelRole.SUPERVISOR,
+            system_prompt=FALLBACK_PROMPT,
+            open_tools=open_chat_tools,
+        ),
+    }
+    orchestration_nodes = OrchestrationNodes(
+        task_registry=task_registry,
+        child_factory=ChildFactory(),
+    )
 
     context_resolver = ContextResolver(
         planner_model = supervisor,
@@ -92,7 +128,8 @@ def create_runtime(settings: Settings) -> Runtime:
     return Runtime(
         assistant_service=assistant_service,
         telegram_transport=telegram_transport,
-        database = database
+        database=database,
+        orchestration_nodes=orchestration_nodes,
     )
 
 
