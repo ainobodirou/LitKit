@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
-from langgraph.types import RetryPolicy
+from langchain_core.messages import ToolCall, ToolMessage
 
 from app.context.models import ContextPacket, ContextSource
 from app.llm.models import AssistantModels
@@ -22,14 +22,31 @@ class PreparedContext:
     tool_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class ChildOutcome:
+    candidate_reply: str
+    tool_calls: tuple[ToolCall, ...]
+    tool_results: tuple[ToolMessage, ...]
+
+
+@dataclass(frozen=True)
+class EvaluationDecision:
+    verdict: Literal["accept", "repair", "needs_input", "blocked"]
+    feedback: str | None = None
+    reply: str | None = None
+
+
 class OrchestratorState(TypedDict):
     ctx_packet: ContextPacket ##reference to downstream context packet
     models: AssistantModels ## catalogue of models ( dataclass defined in llm/models)
     tools: list[str] ## list of tools
     feedback: str | None ## lates feedback
-    retry_policy: RetryPolicy ## retry policy (langgraph model)
+    max_attempts: int
     retrieved_context: NotRequired[RetrievedContext | None]
     prepared_context: NotRequired[PreparedContext]
+    outcome: NotRequired[ChildOutcome]
+    verdict: NotRequired[Literal["accept", "repair", "needs_input", "blocked", "exhausted"]]
+    reply: NotRequired[str]
 
 
 ## Define Nodes 

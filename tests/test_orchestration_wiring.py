@@ -7,6 +7,7 @@ import pytest
 from app import bootstrap
 from app.assistant.graphs import child_factory
 from app.assistant.graphs.child_factory import ChildFactory
+from app.assistant.graphs.sub_state import SubgraphState
 from app.assistant.prompts import CALENDAR_PROMPT, FALLBACK_PROMPT
 from app.config import Settings
 from app.context.models import TaskType
@@ -23,7 +24,11 @@ def test_child_factory_forwards_agent_configuration(monkeypatch):
     result = ChildFactory().build(model=model, tools=tools, system_prompt=CALENDAR_PROMPT)
 
     create_agent.assert_called_once_with(
-        model=model, tools=tools, system_prompt=CALENDAR_PROMPT
+        model=model,
+        tools=tools,
+        system_prompt=CALENDAR_PROMPT,
+        state_schema=SubgraphState,
+        middleware=[child_factory.include_feedback],
     )
     assert result is runnable
 

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from contextlib import AbstractAsyncContextManager
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from langgraph.graph.state import CompiledStateGraph
+    from langgraph.runtime import Runtime
+
+    from app.assistant.graphs.nodes import AttemptRuntime
     from app.assistant.graphs.orchestrator_state import OrchestratorState
 
 
@@ -20,11 +25,21 @@ class IOrchestrationGraph(Protocol):
         """Prepare the context needed for the current attempt."""
         ...
 
-    async def execute_subgraph(self, state: OrchestratorState) -> dict[str, object]:
+    def create_child(
+        self, state: OrchestratorState
+    ) -> AbstractAsyncContextManager[CompiledStateGraph]:
+        """Open the task's tools and build a child for the duration of the loop."""
+        ...
+
+    async def execute_subgraph(
+        self, state: OrchestratorState, runtime: Runtime[AttemptRuntime]
+    ) -> dict[str, object]:
         """Build the child input, await one attempt, and return its outcome."""
         ...
 
-    async def evaluate(self, state: OrchestratorState) -> dict[str, object]:
+    async def evaluate(
+        self, state: OrchestratorState, runtime: Runtime[AttemptRuntime]
+    ) -> dict[str, object]:
         """Assess the outcome and record the verdict and any repair feedback."""
         ...
 

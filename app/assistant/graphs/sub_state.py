@@ -1,12 +1,11 @@
-from assistant.graphs.nodes import PreparedContext
-from langgraph.graph import MessagesState
-from llm.models import AssistantModels
+from langchain.agents import AgentState
 
-class SubgraphState(MessagesState):
+from app.assistant.graphs.orchestrator_state import PreparedContext
+
+class SubgraphState(AgentState):
     task_context: PreparedContext
-    approved_tools: list[str]
-    messages: MessagesState
-    model: AssistantModels
+    feedback: str | None
+
 
 
 ## Define nodes 

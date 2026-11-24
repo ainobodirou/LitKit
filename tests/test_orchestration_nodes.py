@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from langchain_core.messages import AIMessage
-from langgraph.types import RetryPolicy
 from pydantic import SecretStr, ValidationError
 
 from app.assistant.graphs.child_factory import ChildFactory
@@ -40,7 +39,7 @@ def state():
             allowed_resources=(ContextSource.USER_MEMORY,),
         ),
         "models": AssistantModels(supervisor, specialist, orchestrator, distiller),
-        "retry_policy": RetryPolicy(),
+        "max_attempts": 2,
     }
 
 
